@@ -1,36 +1,36 @@
 name: Build Kernel Next-SUSFS For OnePlus devices
-on:
+于:
   workflow_dispatch:
     inputs:
       CPU:
         description: "处理器分支"
         required: true
-        default: 'sm8650'
+        默认: 'sm8650'
       FEIL:
         description: "配置文件"
         required: true
-        default: 'oneplus_ace5'
+        默认: 'oneplus_ace5'
       CPUD:
         description: "处理器代号"
         required: true
-        default: 'pineapple'
+        默认: 'pineapple'
       ANDROID_VERSION:
         description: "内核安卓版本"
         required: true
-        default: 'android14'
+        默认: 'android14'
       KERNEL_VERSION:
         description: "内核版本"
         required: true
-        default: '6.1'
+        默认: '6.1'
       SUSFS_ENABLED:
         description: "添加 SUSFS"
         required: true
         type: boolean
-        default: true
+        默认: true
       SUSFS_VERSION:
         description: "SUSFS 版本"
         required: true
-        default: 'v1.5.5'   
+        默认: 'v1.5.5'   
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -72,6 +72,9 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
+         # 添加自定义版本后缀 "-murong"
+         echo 'res="${res}-murong"' | tee -a kernel_platform/common/scripts/setlocalversion
+         echo 'res="${res}-murong"' | tee -a kernel_platform/msm-kernel/scripts/setlocalversion
   
       - name: Set up KernelSU Next
         run: |
