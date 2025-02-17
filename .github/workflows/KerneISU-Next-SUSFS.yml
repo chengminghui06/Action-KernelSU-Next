@@ -1,36 +1,36 @@
 name: Build Kernel Next-SUSFS For OnePlus devices
-于:
+on:
   workflow_dispatch:
     inputs:
       CPU:
         description: "处理器分支"
         required: true
-        默认: 'sm8650'
+        default: 'sm8650'
       FEIL:
         description: "配置文件"
         required: true
-        默认: 'oneplus_ace5'
+        default: 'oneplus_ace5'
       CPUD:
         description: "处理器代号"
         required: true
-        默认: 'pineapple'
+        default: 'pineapple'
       ANDROID_VERSION:
         description: "内核安卓版本"
         required: true
-        默认: 'android14'
+        default: 'android14'
       KERNEL_VERSION:
         description: "内核版本"
         required: true
-        默认: '6.1'
+        default: '6.1'
       SUSFS_ENABLED:
         description: "添加 SUSFS"
         required: true
         type: boolean
-        默认: true
+        default: true
       SUSFS_VERSION:
         description: "SUSFS 版本"
         required: true
-        默认: 'v1.5.5'   
+        default: 'v1.5.5'   
 jobs:
   build:
     runs-on: ubuntu-latest
