@@ -72,12 +72,6 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
-         # 修改所有可能的setlocalversion脚本
-         for file in $(find . -name "setlocalversion"); do
-             sed -i 's/ -dirty//g' "$file"
-             # 在res赋值后追加"-murong"
-             sed -i '/^res=/a res="${res}-murong"' "$file"
-         done
   
       - name: Set up KernelSU Next
         run: |
