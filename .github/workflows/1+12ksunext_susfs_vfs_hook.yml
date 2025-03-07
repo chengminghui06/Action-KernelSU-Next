@@ -13,7 +13,7 @@ on:
       CPUD:
         description: "处理器代号"
         required: true
-        default: 'pineapple'
+        default: 'kalama'
       ANDROID_VERSION:
         description: "内核安卓版本"
         required: true
@@ -56,11 +56,6 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - name: Configure Git
-        run: |
-         git config --global user.name "build"
-         git config --global user.email "263623064@qq.com"
-
       - name: Install dependencies
         run: |
          sudo apt update && sudo apt upgrade -y
@@ -72,15 +67,16 @@ jobs:
          chmod a+x ~/repo
          sudo mv ~/repo /usr/local/bin/repo
 
-      - name: Initialize repo 和 sync
+      - name: Initialize repo and sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
          repo sync
-         repo forall -c 'git reset --hard HEAD'
-         repo forall -c 'git clean -fdx'
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+         sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
+         sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
+         sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
 
       - name: Set up KernelSU Next
         if: github.event.inputs.KSUNEXT_ENABLED == 'true'
@@ -157,7 +153,6 @@ jobs:
          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
          sed -i '2s/check_defconfig//' ./common/build.config.gki
-         find . -name "setlocalversion" -exec sed -i 's/ -dirty//g' {} \;
 
       - name: Build kernel
         run: |
