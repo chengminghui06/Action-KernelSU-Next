@@ -154,10 +154,10 @@ jobs:
          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+         sed -i '2s/check_defconfig//' ./common/build.config.gki
 
       - name: remove dirty
         run: |
-         sed -i '2s/check_defconfig//' ./common/build.config.gki
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
