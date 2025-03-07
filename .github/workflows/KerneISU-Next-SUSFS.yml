@@ -156,11 +156,18 @@ jobs:
          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
          sed -i '2s/check_defconfig//' ./common/build.config.gki
 
-      - name: remove dirty
+      - name: Force remove -dirty suffix
         run: |
-         sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
-         sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
-         sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
+          cd kernel_workspace/kernel_platform
+          # 在所有可能生成 -dirty 的文件中强制删除
+          sed -i 's/ -dirty//g' common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
+          sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
+
+          # 提交所有修改确保仓库干净
+          git add -A
+          git commit -m "Force remove -dirty suffix" || echo "No changes to commit"
+
 
       - name: Build kernel
         run: |
