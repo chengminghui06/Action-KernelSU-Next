@@ -1,4 +1,4 @@
-name: KernelSU Next SUSFS 12
+name: Now KernelSU Next SUSFS 12 remove susfs.zip
 on:
   workflow_dispatch:
     inputs:
