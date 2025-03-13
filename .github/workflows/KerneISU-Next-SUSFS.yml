@@ -164,11 +164,7 @@ jobs:
           sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
           sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
-
-          # 提交所有修改确保仓库干净
-          git add -A
-          git commit -m "Force remove -dirty suffix" || echo "No changes to commit"
-
+          sed -i '$s|echo "\$res"|echo "\$res-murong"|' ./common/scripts/setlocalversion
 
       - name: Build kernel
         run: |
