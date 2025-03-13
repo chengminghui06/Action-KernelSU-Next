@@ -163,7 +163,7 @@ jobs:
           sed -i 's/ -dirty//g' common/scripts/setlocalversion
           sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
-          sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
+          sed -i 's/res=$(echo "$res" | sed '\''s/-dirty//g'\'')/&\n    res="$res-murong"/' common/scripts/setlocalversion
 
           # 提交所有修改确保仓库干净
           git add -A
