@@ -25,7 +25,7 @@ on:
       KERNEL_NAME:
         description: "修改内核名称"
         required: true
-        default: '-android14-11-o-202503200835-murong'
+        default: '-android14-11-o-2503200835-murong'
       kernelsu_variant:
         description: "选择 KSU"
         required: true
