@@ -1,4 +1,4 @@
-name: Build OnePlus_Kernel
+name: Build OnePlus_Kernel mksu susfs vfs hook
 on:
   workflow_dispatch:
     inputs:
