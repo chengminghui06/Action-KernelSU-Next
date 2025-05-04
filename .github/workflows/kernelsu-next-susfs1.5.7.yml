@@ -55,34 +55,19 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.name "build-bot"
-          git config --global user.email "build@example.com"
-          git config --global submodule.recurse true
+         git config --global user.name "build"
+         git config --global user.email "263623064@qq.com"
 
       - name: Install dependencies
         run: |
-          sudo apt update && sudo apt full-upgrade -y
-          sudo apt install -y \
-            python3 git curl rsync \
-            bc bison flex libssl-dev \
-            libelf-dev device-tree-compiler \
-            lz4 zlib1g-dev
+         sudo apt update && sudo apt upgrade -y
+         sudo apt install -y python3 git curl patch bc bison flex libssl-dev
 
       - name: Install repo tool
         run: |
-          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
-          chmod a+x ~/repo
-          sudo mv ~/repo /usr/local/bin/
-
-      - name: Initialize kernel repo
-        run: |
-          mkdir -p kernel_workspace
-          cd kernel_workspace
-          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git \
-            -b refs/heads/oneplus/${{ github.event.inputs.CPU }} \
-            -m ${{ github.event.inputs.FEIL }}.xml \
-            --depth=1
-          repo sync -j$(nproc) --force-sync --no-clone-bundle
+         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+         chmod a+x ~/repo
+         sudo mv ~/repo /usr/local/bin/repo
 
           # 清理受保护的导出列表
           rm -f kernel_platform/common/android/abi_gki_protected_exports_*
