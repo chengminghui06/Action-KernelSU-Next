@@ -95,6 +95,11 @@ jobs:
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
           cd kernel_platform
 
+          # 新增 LZ4KD 文件复制
+          cp -r ../SukiSU_patch/other/lz4k/include/linux/* ./common/include/linux/
+          cp -r ../SukiSU_patch/other/lz4k/lib/* ./common/lib/
+          cp -r ../SukiSU_patch/other/lz4k/crypto/* ./common/crypto/
+
           # 复制 SUSFS 文件
           cp -r ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
           cp -r ../susfs4ksu/kernel_patches/fs/* ./common/fs/
@@ -103,6 +108,10 @@ jobs:
           # 应用基础补丁
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
+
+          # 应用 LZ4KD 补丁
+          cp ../../SukiSU_patch/other/lz4k_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./
+          patch -p1 -F 3 < lz4kd.patch || true
 
           # 应用 syscall 补丁（1.5.7 新增）
           cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
@@ -165,6 +174,25 @@ jobs:
           sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
           sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
           sed -i '$s|echo "\$res"|echo "\$res-murong"|' ./common/scripts/setlocalversion
+          
+          # LZ4KD 相关配置
+          echo "CONFIG_ZSMALLOC=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ZRAM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CRYPTO_LZO=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 根据内核版本调整配置
+          if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "5.10" ]; then
+            echo "CONFIG_ZRAM_DEF_COMP_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_MODULE_SIG=n" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+
+          # 6.1+ 内核特殊处理
+          if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.1" ] || [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.6" ]; then
+            sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' ./common/arch/arm64/configs/gki_defconfig
+            sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' ./common/arch/arm64/configs/gki_defconfig
+          fi
 
       - name: Build Kernel
         run: |
