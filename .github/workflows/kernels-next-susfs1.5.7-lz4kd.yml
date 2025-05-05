@@ -77,11 +77,12 @@ jobs:
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
 
       - name: Set up KernelSU Next
-  if: github.event.inputs.KSUNEXT_ENABLED == 'true'
-  run: |
-    cd kernel_workspace/kernel_platform
-    # 使用修复 atomic 符号的分支
-    curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/fix-atomic-symbols/kernel/setup.sh" | bash -s next
+        if: 
+         github.event.inputs.KSUNEXT_ENABLED == 'true'
+        run: |
+          cd kernel_workspace/kernel_platform
+          # 使用修复 atomic 符号的分支
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/fix-atomic-symbols/kernel/setup.sh" | bash -s next
           cd KernelSU-Next
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
@@ -138,16 +139,16 @@ jobs:
           patch -p1 -F 3 < 69_hide_stuff.patch || true
           git add -A && git commit -a -m "BUILD: KernelSU Next + SUSFS 1.5.7 + lz4k"
 
-          - name: Apply atomic symbol patch
-  run: |
-    cd kernel_workspace/kernel_platform/common
-    curl -O https://patch-diff.githubusercontent.com/raw/tiann/KernelSU/pull/1234/atomic-symbol-fix.patch
-    patch -p1 < atomic-symbol-fix.patch
+      - name: Apply atomic symbol patch
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          curl -O https://patch-diff.githubusercontent.com/raw/tiann/KernelSU/pull/1234/atomic-symbol-fix.patch
+          patch -p1 < atomic-symbol-fix.patch
 
       - name: Apply Kernel Configurations
-  run: |
-    cd kernel_workspace/kernel_platform
-    # 禁用模块签名
+        run: |
+          cd kernel_workspace/kernel_platform
+          # 禁用模块签名
           echo "CONFIG_MODULE_SIG=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_MODULE_SIG_ALL=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_MODULE_SIG_SHA512=n" >> ./common/arch/arm64/configs/gki_defconfig
