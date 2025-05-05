@@ -1,4 +1,4 @@
-name: Build KernelSU Next SUSFS All
+name: Build KernelSU Next SUSFS 1.5.7
 on:
   workflow_dispatch:
     inputs:
