@@ -178,6 +178,17 @@ jobs:
           git clone https://github.com/ShirkNeko/SukiSU_patch.git  # 新增补丁仓库
           
           cd kernel_platform
+
+          # Apply patches
+          cd ./KernelSU-Next
+          patch -p1 < kernel-patch-susfs-v1.5.7-to-KernelSU-Next.patch || true
+          cd ../common
+          patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
+
+          # Replace next_hooks.patch with syscall_hooks.patch
+          cp ../../kernel_patches/69_hide_stuff.patch ./
+          patch -p1 -F 3 < 69_hide_stuff.patch
+          patch -p1 -F 3 < syscall_hooks.patch
           
           # 复制 LZ4K 补丁
           cp -r ../SukiSU_patch/other/lz4k/include/linux/* ./common/include/linux
@@ -193,18 +204,7 @@ jobs:
           # 应用 LZ4K 补丁
           cd ./common
           patch -p1 -F 3 < lz4kd.patch || true
-
-          # Apply patches
-          cd ./KernelSU-Next
-          patch -p1 < kernel-patch-susfs-v1.5.7-to-KernelSU-Next.patch || true
-          cd ../common
-          patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
-
-          # Replace next_hooks.patch with syscall_hooks.patch
-          cp ../../kernel_patches/69_hide_stuff.patch ./
-          patch -p1 -F 3 < 69_hide_stuff.patch
-          patch -p1 -F 3 < syscall_hooks.patch
-
+          
       - name: Apply new hook and add configuration
         run: |
           cd kernel_workspace/kernel_platform
