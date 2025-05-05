@@ -3,29 +3,84 @@ on:
   workflow_dispatch:
     inputs:
       CPU:
+        type: choice
         description: "分支"
         required: true
-        default: 'sm8650'
+        default: sm8650
+        options:
+          - sm7550
+          - sm7675
+          - sm8450
+          - sm8475
+          - sm8550
+          - sm8650
+          - sm8750
       FEIL:
+        type: choice
         description: "配置文件"
         required: true
-        default: 'oneplus12_v'
+        default: oneplus12_v
+        options:
+          - oneplus_nord_ce4_v
+          - oneplus_ace_3v_v
+          - oneplus_nord_4_v
+          - oneplus_10_pro_v
+          - oneplus_10t_v
+          - oneplus_11r_v
+          - oneplus_ace2_v
+          - oneplus_ace_pro_v
+          - oneplus_11_v
+          - oneplus_12r_v
+          - oneplus_ace2pro_v
+          - oneplus_ace3_v
+          - oneplus_open_v
+          - oneplus12_v
+          - oneplus_13r
+          - oneplus_ace3_pro_v
+          - oneplus_ace5
+          - oneplus_pad2_v
+          - oneplus_13
+          - oneplus_ace5_pro
+          - GitHub有bug可能不显示最后一项,误使用此项
       CPUD:
+        type: choice
         description: "处理器代号"
         required: true
-        default: 'pineapple'
+        default: pineapple
+        options:
+          - crow
+          - waipio
+          - kalama
+          - pineapple
+          - sun
       ANDROID_VERSION:
+        type: choice
         description: "内核安卓版本"
         required: true
-        default: 'android14'
+        default: android14
+        options:
+          - android12
+          - android13
+          - android14
+          - android15
       KERNEL_VERSION:
-        description: "内核版本"
-        required: true
-        default: '6.1'
+       type: choice
+       description: "内核版本"
+       required: true
+       default: "6.1"
+       options:
+         - "5.10"
+         - "5.15"
+         - "6.1"
+         - "6.6"
       BUILD_METHOD:
+        type: choice
         description: "编译方式"
         required: true
-        default: 'gki'
+        default: gki
+        options:
+          - gki
+          - perf
       KSUNEXT_ENABLED:
         description: "添加 KSU Next"
         required: true
@@ -33,6 +88,11 @@ on:
         default: true
       SUSFS_ENABLED:
         description: "添加 SUSFS"
+        required: true
+        type: boolean
+        default: true
+      SUSFS_CI:
+        description: "SUSFS模块下载是否调用CI？"
         required: true
         type: boolean
         default: true
@@ -44,9 +104,8 @@ jobs:
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
-          root-reserve-mb: 24576
+          root-reserve-mb: 8192
           temp-reserve-mb: 8192
-          swap-size-mb: 16384
           remove-dotnet: 'true'
           remove-android: 'true'
           remove-haskell: 'true'
@@ -60,7 +119,20 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update && sudo apt upgrade -y
+          sudo apt-get install jq -y
           sudo apt install -y python3 git curl patch bc bison flex libssl-dev
+
+      - name: Show selected inputs debug
+        run: |
+          echo "Selected CPU: ${{ github.event.inputs.CPU }}"
+          echo "Selected FEIL: ${{ github.event.inputs.FEIL }}"
+          echo "Selected CPUD: ${{ github.event.inputs.CPUD }}"
+          echo "Selected ANDROID_VERSION: ${{ github.event.inputs.ANDROID_VERSION }}"
+          echo "Selected KERNEL_VERSION: ${{ github.event.inputs.KERNEL_VERSION }}"
+          echo "Selected BUILD_METHOD: ${{ github.event.inputs.BUILD_METHOD }}"
+          echo "Selected SUSFS_CI: ${{ github.event.inputs.SUSFS_CI }}"
+          echo "Selected SUSFS_ENABLED: ${{ github.event.inputs.SUSFS_ENABLED }}"
+          echo "Selected KSUNEXT_ENABLED: ${{ github.event.inputs.KSUNEXT_ENABLED }}"
 
       - name: Install repo tool
         run: |
@@ -76,88 +148,96 @@ jobs:
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
 
-      - name: Set up KernelSU Next
-        if: 
-         github.event.inputs.KSUNEXT_ENABLED == 'true'
+      - name: Force remove -dirty suffix
         run: |
           cd kernel_workspace/kernel_platform
-          # 使用修复 atomic 符号的分支
-          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/fix-atomic-symbols/kernel/setup.sh" | bash -s next
+          sed -i 's/ -dirty//g' common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
+          sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
+          sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
+          git add -A
+          git commit -m "Force remove -dirty suffix from kernel version"
+          sed -i '$s|echo "\$res"|echo "\$res-murong"|' ./common/scripts/setlocalversion
+
+      - name: Set up KernelSU Next
+        if: github.event.inputs.KSUNEXT_ENABLED == 'true'
+        run: |
+          cd kernel_workspace/kernel_platform
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
           cd KernelSU-Next
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 
-      - name: Set up SUSFS 1.5.7
+      - name: Set up susfs
         if: github.event.inputs.SUSFS_ENABLED == 'true'
         run: |
           cd kernel_workspace
-          # 使用新版 SUSFS 1.5.7 仓库
-          git clone https://github.com/ShirkNeko/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
+          git clone https://github.com/WildPlusKernel/kernel_patches.git
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git  # 新增补丁仓库
+          
           cd kernel_platform
+          
+          # 复制 LZ4K 补丁
+          cp -r ../SukiSU_patch/other/lz4k/include/linux/* ./common/include/linux
+          cp -r ../SukiSU_patch/other/lz4k/lib/* ./common/lib
+          cp -r ../SukiSU_patch/other/lz4k/crypto/* ./common/crypto
+          cp ../SukiSU_patch/other/lz4k_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./common/
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
+          cp ../kernel_patches/next/kernel-patch-susfs-v1.5.7-to-KernelSU-Next.patch ./KernelSU-Next/
+          cp ../kernel_patches/next/syscall_hooks.patch ./common/
+          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-          # 复制 SUSFS 文件
-          cp -r ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
-          cp -r ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp -r ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-
-          # 添加 lz4k 核心文件
-          cp -r ../SukiSU_patch/other/lz4k/include/linux/* ./common/include/linux/
-          cp -r ../SukiSU_patch/other/lz4k/lib/* ./common/lib/
-          cp -r ../SukiSU_patch/other/lz4k/crypto/* ./common/crypto/
-
-          # 应用基础补丁
+          # 应用 LZ4K 补丁
           cd ./common
-          patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
-
-          # 应用 syscall 补丁（1.5.7 新增）
-          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
-          patch -p1 -F 3 < syscall_hooks.patch || true
-
-          # 应用 lz4k 压缩算法补丁
-          cp ../../SukiSU_patch/other/lz4k_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
 
-          # 适配 KernelSU Next
-          cd ..
-          sed -i '/#include "selinux\/selinux.h"/a \
-          bool ksu_vfs_read_hook = true;\
-          bool ksu_execveat_hook = true;\
-          bool ksu_input_hook = true;\
-          EXPORT_SYMBOL(ksu_vfs_read_hook);\
-          EXPORT_SYMBOL(ksu_execveat_hook);\
-          EXPORT_SYMBOL(ksu_input_hook);' kernel/ksud.c || true
-          sed -i '/#include <linux\/types.h>/a \
-          extern bool ksu_vfs_read_hook;\
-          extern bool ksu_execveat_hook;\
-          extern bool ksu_input_hook;' kernel/ksud.h || true
+          # Apply patches
+          cd ./KernelSU-Next
+          patch -p1 < kernel-patch-susfs-v1.5.7-to-KernelSU-Next.patch || true
+          cd ../common
+          patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
 
-          # 应用隐藏补丁
-          cd common
-          cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          patch -p1 -F 3 < 69_hide_stuff.patch || true
-          git add -A && git commit -a -m "BUILD: KernelSU Next + SUSFS 1.5.7 + lz4k"
+          # Replace next_hooks.patch with syscall_hooks.patch
+          cp ../../kernel_patches/69_hide_stuff.patch ./
+          patch -p1 -F 3 < 69_hide_stuff.patch
+          patch -p1 -F 3 < syscall_hooks.patch
 
-      - name: Apply atomic symbol patch
-        run: |
-          cd kernel_workspace/kernel_platform/common
-          curl -O https://patch-diff.githubusercontent.com/raw/tiann/KernelSU/pull/1234/atomic-symbol-fix.patch
-          patch -p1 < atomic-symbol-fix.patch
-
-      - name: Apply Kernel Configurations
+      - name: Apply new hook and add configuration
         run: |
           cd kernel_workspace/kernel_platform
-          # 禁用模块签名
-          echo "CONFIG_MODULE_SIG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_MODULE_SIG_ALL=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_MODULE_SIG_SHA512=n" >> ./common/arch/arm64/configs/gki_defconfig
-          # KernelSU 核心配置
+          
+          # 添加 LZ4K 相关配置
+          if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "5.10" ]; then
+            echo "CONFIG_ZSMALLOC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_MODULE_SIG=n" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZO=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_DEF_COMP_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+
+          if [ "${{ github.event.inputs.KERNEL_VERSION }}" != "6.6" ] && [ "${{ github.event.inputs.KERNEL_VERSION }}" != "5.10" ]; then
+            sed -i 's/CONFIG_MODULE_SIG=y/CONFIG_MODULE_SIG=n/g' ./common/arch/arm64/configs/gki_defconfig
+            sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' ./common/arch/arm64/configs/gki_defconfig
+            sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' ./common/arch/arm64/configs/gki_defconfig
+          fi
+
+          if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.6" ]; then
+            echo "CONFIG_ZSMALLOC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' ./common/arch/arm64/configs/gki_defconfig
+          fi
+
+          if grep -q "CONFIG_ZSMALLOC=y" ./common/arch/arm64/configs/gki_defconfig && grep -q "CONFIG_ZRAM=y" ./common/arch/arm64/configs/gki_defconfig; then
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_WITH_KPROBES=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
-
-          # SUSFS 1.5.7 配置
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -174,46 +254,107 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          sed -i '2s/check_defconfig//' ./common/build.config.gki
 
-          # lz4k 压缩算法配置
-          echo "CONFIG_ZSMALLOC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ZRAM=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_MODULE_SIG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZO=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ZRAM_DEF_COMP_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
-
-          # 禁用 config 检查
-          sed -i 's/check_defconfig//' ./common/build.config.gki
-
-      - name: Clean Dirty Suffix
-        run: |
-          cd kernel_workspace/kernel_platform
-          sed -i 's/ -dirty//g' common/scripts/setlocalversion
-          sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
-          sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
-          sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\$res-murong"|' ./common/scripts/setlocalversion
-
-      - name: Build Kernel
+      - name: Build kernel
+        if: ${{ github.event.inputs.CPU == 'sm8650' || github.event.inputs.CPU == 'sm7675' }}
         run: |
           cd kernel_workspace
-          export LTO=thin
-          ./kernel_platform/build_with_bazel.py \
-            -t ${{ github.event.inputs.CPUD }} \
-            gki
+          ./kernel_platform/build_with_bazel.py -t ${{ github.event.inputs.CPUD }} ${{ github.event.inputs.BUILD_METHOD }}
+          
+      - name: Fallback build kernel
+        if: ${{ github.event.inputs.CPU != 'sm8650' && github.event.inputs.CPU != 'sm7675' }}
+        run: |
+         cd kernel_workspace
+         LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ github.event.inputs.CPUD }} ${{ github.event.inputs.BUILD_METHOD }}
 
-      - name: Package AnyKernel3
+      - name: Make AnyKernel3
         run: |
           git clone https://github.com/Numbersf/AnyKernel3 --depth=1
           rm -rf ./AnyKernel3/.git
-          find ./kernel_workspace/kernel_platform/out -name "Image" -exec cp {} ./AnyKernel3/ \;
 
-      - name: Upload Artifact
+          dir1="./kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-${{ github.event.inputs.BUILD_METHOD }}/dist/"
+          dir2="./kernel_workspace/kernel_platform/common/out/arch/arm64/boot/"
+          dir3="./kernel_workspace/kernel_platform/out/msm-${{ github.event.inputs.CPUD }}-${{ github.event.inputs.CPUD }}-${{ github.event.inputs.BUILD_METHOD }}/dist/"
+          target1="./AnyKernel3/"
+          target2="./kernel_workspace/kernel"
+
+          # 查找 Image 文件
+          if find "$dir1" -name "Image" | grep -q "Image"; then
+            image_path="$dir1"Image
+          elif find "$dir2" -name "Image" | grep -q "Image"; then
+            image_path="$dir2"Image
+          elif find "$dir3" -name "Image" | grep -q "Image"; then
+            image_path="$dir3"Image
+          else
+            image_path=$(find "./kernel_workspace/kernel_platform/common/out/" -name "Image" | head -n 1)
+          fi
+
+          # 拷贝 Image
+          if [ -n "$image_path" ] && [ -f "$image_path" ]; then
+            mkdir -p "$dir1"
+            if [ "$(realpath "$image_path")" != "$(realpath "$dir1"Image)" ]; then
+              cp "$image_path" "$dir1"
+            else
+              echo "源文件与目标相同，跳过复制"
+            fi
+            cp "$dir1"Image ./AnyKernel3/Image
+          else
+            echo "未找到 Image 文件，构建可能失败"
+            exit 1
+          fi
+
+          # 可选复制其它新文件（如果存在）
+          if [ "${{ github.event.inputs.CPU }}" = "sm8750" ]; then
+          for file in dtbo.img system_dlkm.erofs.img vendor_dlkm.img vendor_boot.img; do
+            if [ -f "$dir1$file" ]; then
+              target_name="$file"
+              # 特殊处理 system_dlkm.erofs.img 的目标名
+              if [ "$file" = "system_dlkm.erofs.img" ]; then
+                target_name="system_dlkm.img"
+              fi
+              cp "$dir1$file" "./AnyKernel3/$target_name"
+            else
+              echo "$file 不存在，跳过复制"
+            fi
+          done
+          fi
+
+      - name: Download Latest SUSFS Module from CI
+        if: ${{ github.event.inputs.SUSFS_CI == 'true' }}
+        run: |
+          LATEST_RUN_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs?status=success" | \
+            jq -r '.workflow_runs[] | select(.head_branch == "v1.5.2+") | .id' | head -n 1)
+
+          if [ -z "$LATEST_RUN_ID" ]; then
+            echo "No successful run found for branch v1.5.2+"
+            exit 1
+          fi
+
+          ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$LATEST_RUN_ID/artifacts" | jq -r '.artifacts[0].archive_download_url')
+
+          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs.zip "$ARTIFACT_URL"
+          cp ksu_module_susfs.zip ./AnyKernel3/
+
+      # 下载 SUSFS 模块（Release）
+      - name: Download Latest SUSFS Module from Release
+        if: ${{ github.event.inputs.SUSFS_CI == 'false' }}
+        run: |
+          wget https://github.com/sidex15/ksu_module_susfs/releases/latest/download/ksu_module_susfs_1.5.2+.zip
+          cp ksu_module_susfs_1.5.2+.zip ./AnyKernel3/
+
+      - name: Remove _uv suffix from FEIL
+        id: feil_clean
+        run: |
+          clean_feil="${{ github.event.inputs.FEIL }}"
+          clean_feil="${clean_feil%_v}"  # 去掉结尾的 _v（如果有）
+          clean_feil="${clean_feil%_u}"  # 去掉结尾的 _u（如果有）
+          echo "value=$clean_feil" >> $GITHUB_OUTPUT
+
+      - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: KernelSU_Next_1.5.7_${{ github.event.inputs.FEIL }}
+          name: AnyKernel3_KernelSU_Next_${{ env.KSUVER }}_${{ steps.feil_clean.outputs.value }}
           path: ./AnyKernel3/*
