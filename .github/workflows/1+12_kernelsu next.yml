@@ -84,9 +84,9 @@ on:
           - perf
       SUFFIX:
         type: string
-        description: "murong"
+        description: "自定义内核名"
         required: false
-        default: ""
+        default: "murong"
       FAST_BUILD:
         type: boolean
         description: "是否使用极速构建？"
